@@ -1,0 +1,10 @@
+.vscode
+.idea
+.DS_Store
+node_modules/
+public/
+lib/
+storybook-static
+**.log
+.prettierrc.js
+dist
