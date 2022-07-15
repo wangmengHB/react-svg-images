@@ -2,10 +2,10 @@ const path = require("path");
 const fs = require("fs").promises;
 const camelcase = require("camelcase");
 const util = require("util");
-const { iconRowTemplate, iconsEntryTemplate } = require("./templates");
-const { getIconFiles, convertIconData, rmDirRecursive } = require("./logics");
-const { svgo } = require("./svgo");
-const { DIST, LIB, rootDir, iconsFolderName, svgContents, BASE_LIB_NAME } = require('./config');
+const glob = require("glob-promise");
+const { iconTemplate, libEntryTemplate } = require("./templates");
+const { convertIconData, rmDirRecursive } = require("./logics");
+const { DIST, LIB, rootDir, iconsFolderName, BASE_LIB_NAME, svgFileGlobPath } = require('./config');
 
 const exec = util.promisify(require("child_process").exec);
 
@@ -39,72 +39,63 @@ async function dirInit() {
     [iconsFolderName, "index.d.ts"],
     `// THIS FILE IS AUTO GENERATED\nimport { IconTree, IconType } from '../${BASE_LIB_NAME}'\nexport { IconContext } from '../${BASE_LIB_NAME}'\n`
   );
-  await write(
-    [iconsFolderName, "package.json"],
-    JSON.stringify(
-      {
-        sideEffects: false,
-        module: "./index.esm.js",
-      },
-      null,
-      2
-    ) + "\n"
-  );
-  
-
   
 }
 
 async function writeIconModule() {
-  const entryCommon = iconsEntryTemplate(iconsFolderName, "common");
+  const entryCommon = libEntryTemplate(iconsFolderName, "common");
   await fs.writeFile(path.resolve(DIST, "index.js"), entryCommon, "utf8");
-  const entryModule = iconsEntryTemplate(iconsFolderName, "module");
+  const entryModule = libEntryTemplate(iconsFolderName, "module");
   await fs.writeFile(path.resolve(DIST, "index.esm.js"), entryModule, "utf8");
-  const entryDts = iconsEntryTemplate(iconsFolderName, "dts");
+  const entryDts = libEntryTemplate(iconsFolderName, "dts");
   await fs.writeFile(path.resolve(DIST, "index.d.ts"), entryDts, "utf8");
 
   const exists = new Set(); // for remove duplicate
-  for (const content of svgContents) {
-    const files = await getIconFiles(content);
 
-    for (const file of files) {
-      const svgStrRaw = await fs.readFile(file, "utf8");
-      const svgStr = content.processWithSVGO
-        ? await svgo.optimize(svgStrRaw).then((result) => result.data)
-        : svgStrRaw;
+  const files = await glob(svgFileGlobPath);
 
-      const iconData = await convertIconData(svgStr, content.multiColor);
-
-      const rawName = path.basename(file, path.extname(file));
-      const pascalName = camelcase(rawName, { pascalCase: true });
-      const name =
-        (content.formatter && content.formatter(pascalName, file)) ||
-        pascalName;
-      if (exists.has(name)) continue;
-      exists.add(name);
-
-      const modRes = iconRowTemplate(name, iconData, "module");
-      await fs.appendFile(
-        path.resolve(DIST, iconsFolderName, "index.esm.js"),
-        modRes,
-        "utf8"
-      );
-      const comRes = iconRowTemplate(name, iconData, "common");
-      await fs.appendFile(
-        path.resolve(DIST, iconsFolderName, "index.js"),
-        comRes,
-        "utf8"
-      );
-      const dtsRes = iconRowTemplate(name, iconData, "dts");
-      await fs.appendFile(
-        path.resolve(DIST, iconsFolderName, "index.d.ts"),
-        dtsRes,
-        "utf8"
-      );
-
-      exists.add(file);
+  for (const file of files) {
+    const fileName = path.basename(file, path.extname(file));
+    const pascalName = camelcase(fileName, { pascalCase: true });
+    if (fileName.toLowerCase().trim() === 'index') {
+      throw new Error(`raw svg's file name should NOT be named by [index.svg].`);
     }
+
+    const svgStrRaw = await fs.readFile(file, "utf8");
+    const iconData = await convertIconData(svgStrRaw, true, fileName);
+
+    
+    if (exists.has(pascalName)) {
+      continue;
+    }
+    
+    exists.add(pascalName);
+
+    // write files:
+    const modRes = iconTemplate(pascalName, iconData, "module");
+    await fs.appendFile(
+      path.resolve(DIST, iconsFolderName, "index.esm.js"),
+      modRes,
+      "utf8"
+    );
+    const comRes = iconTemplate(pascalName, iconData, "common");
+    await fs.appendFile(
+      path.resolve(DIST, iconsFolderName, "index.js"),
+      comRes,
+      "utf8"
+    );
+    const dtsRes = iconTemplate(pascalName, iconData, "dts");
+    await fs.appendFile(
+      path.resolve(DIST, iconsFolderName, "index.d.ts"),
+      dtsRes,
+      "utf8"
+    );
+
+    // TODO: write single files
+
+    exists.add(file);
   }
+  
 }
 
 async function writeEntryPoints() {

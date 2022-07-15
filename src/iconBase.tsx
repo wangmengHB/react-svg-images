@@ -1,5 +1,4 @@
 import * as React from 'react';
-
 import { IconContext, DefaultContext } from './iconContext';
 
 export interface IconTree {
@@ -8,10 +7,33 @@ export interface IconTree {
   child: IconTree[];
 }
 
+const camelizeRE = /-(\w)/g
+const camelize = (str: string) => {
+    return str.replace(camelizeRE, (_, c) => c ? c.toUpperCase() : '')
+}
 
 function Tree2Element(tree: IconTree[]): React.ReactElement<{}>[] {
-  return tree && tree.map((node, i) => React.createElement(node.tag, {key: i, ...node.attr}, Tree2Element(node.child)));
+  if (!Array.isArray(tree)) {
+    return [];
+  }
+  return tree.map((node, i) => {
+      // For the style props in the children element of svg, 
+      // they need to be converted to react css properties
+      const { style, ...rest } = node.attr;
+      const styleObject: any = {};
+      if (typeof style === 'string') {
+        const pairs: string[] = style.split(';');
+        for (const item of pairs) {
+          const [ key, value ] = item.split(':');
+          if (value) {
+            styleObject[camelize(key)] = value.replace(/['"]+/g, '').trim();
+          }
+        }
+      }
+      return React.createElement(node.tag, {key: i,  ...rest, style: styleObject}, Tree2Element(node.child))
+  });
 }
+
 export function GenIcon(data: IconTree) {
   return (props: IconBaseProps) => (
     <IconBase attr={{...data.attr}} {...props}>

@@ -3,13 +3,12 @@ const glob = require("glob-promise");
 const camelcase = require("camelcase");
 const fs = require("fs").promises;
 const path = require("path");
+const { strings } = require("util-kit");
 
-async function getIconFiles(content) {
-  return typeof content.files === "string"
-    ? glob(content.files)
-    : content.files();
-}
-async function convertIconData(svg, multiColor) {
+const { escapeRegExpCharacters } = strings;
+
+
+async function convertIconData(svg, multiColor, fileName) {
   const $svg = cheerio.load(svg, { xmlMode: true })("svg");
 
   // filter/convert attributes
@@ -50,6 +49,20 @@ async function convertIconData(svg, multiColor) {
         default:
           obj[newName] = attribs[name];
           break;
+      }
+      // If id property exist in svg raw files, it can cause conflict when showing them at the same time.
+      // So it would better to use its own filename as prefix in order to make id globally unique
+      const FILENAME_REG = new RegExp(`^${escapeRegExpCharacters(fileName)}-`);
+      if (newName === 'id' && !FILENAME_REG.test(attribs[name])) {
+        obj[newName] = `${fileName}-${attribs[name]}`;
+      }
+      // For id refence, such as url(#xxx), must replace them as well
+      const REG_ID_REFERENCE = /url\(#([a-zA-Z0-9\-]+)\)/;
+      if (REG_ID_REFERENCE.test(attribs[name])) {
+        const idRefStr = attribs[name];
+        const newIdRef = idRefStr.replace(REG_ID_REFERENCE, `url(#${fileName}-$1)`);
+        obj[newName] = newIdRef;
+        console.log('id converted:', idRefStr, newIdRef);
       }
       return obj;
     }, {});
@@ -106,7 +119,6 @@ async function rmDirRecursive(dest) {
 }
 
 module.exports = {
-  getIconFiles,
   convertIconData,
   copyRecursive,
   rmDirRecursive,
