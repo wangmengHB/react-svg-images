@@ -7,7 +7,7 @@ const path = require('path')
 module.exports = {
     context: path.resolve(__dirname, './'),
     entry: {
-      'icons': path.resolve(__dirname, './index.tsx'),
+      'react-svg-images': path.resolve(__dirname, './index.tsx'),
     },
     output: {
         path: path.resolve(__dirname, './dist'),
@@ -31,6 +31,10 @@ module.exports = {
                 loader: 'babel-loader',
               },
             ]
+          },
+          {
+            test: /\.md$/,
+            type: 'asset/source'
           },
           {
             test: /\.less$/,

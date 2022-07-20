@@ -3,9 +3,9 @@ const fs = require("fs").promises;
 const camelcase = require("camelcase");
 const util = require("util");
 const glob = require("glob-promise");
-const { iconTemplate, libEntryTemplate } = require("./templates");
+const { iconTemplate, libEntryTemplate, singleIconFileTemplate } = require("./templates");
 const { convertIconData, rmDirRecursive } = require("./logics");
-const { DIST, LIB, rootDir, iconsFolderName, BASE_LIB_NAME, svgFileGlobPath } = require('./config');
+const { DIST, LIB, rootDir, iconsFolderName, BASE_FOLDER_NAME, svgFileGlobPath } = require('./config');
 
 const exec = util.promisify(require("child_process").exec);
 
@@ -29,15 +29,15 @@ async function dirInit() {
 
   await write(
     [iconsFolderName, "index.js"],
-    `// THIS FILE IS AUTO GENERATED\nvar GenIcon = require('../${BASE_LIB_NAME}').GenIcon\nmodule.exports.IconContext = require('../${BASE_LIB_NAME}').IconContext\n`
+    `var GenIcon = require('../${BASE_FOLDER_NAME}').GenIcon\nmodule.exports.IconContext = require('../${BASE_FOLDER_NAME}').IconContext\n`
   );
   await write(
     [iconsFolderName, "index.esm.js"],
-    `// THIS FILE IS AUTO GENERATED\nimport { GenIcon } from '../${BASE_LIB_NAME}';\nexport { IconContext } from '../${BASE_LIB_NAME}'\n`
+    `import { GenIcon } from '../${BASE_FOLDER_NAME}';\nexport { IconContext } from '../${BASE_FOLDER_NAME}'\n`
   );
   await write(
     [iconsFolderName, "index.d.ts"],
-    `// THIS FILE IS AUTO GENERATED\nimport { IconTree, IconType } from '../${BASE_LIB_NAME}'\nexport { IconContext } from '../${BASE_LIB_NAME}'\n`
+    `import { IconType } from '../${BASE_FOLDER_NAME}'\nexport { IconContext } from '../${BASE_FOLDER_NAME}'\n`
   );
   
 }
@@ -60,16 +60,13 @@ async function writeIconModule() {
     if (fileName.toLowerCase().trim() === 'index') {
       throw new Error(`raw svg's file name should NOT be named by [index.svg].`);
     }
-
-    const svgStrRaw = await fs.readFile(file, "utf8");
-    const iconData = await convertIconData(svgStrRaw, true, fileName);
-
-    
     if (exists.has(pascalName)) {
       continue;
     }
-    
-    exists.add(pascalName);
+
+    // read svg file
+    const svgStrRaw = await fs.readFile(file, "utf8");
+    const iconData = await convertIconData(svgStrRaw, true, fileName);
 
     // write files:
     const modRes = iconTemplate(pascalName, iconData, "module");
@@ -91,9 +88,33 @@ async function writeIconModule() {
       "utf8"
     );
 
-    // TODO: write single files
+    // write single files
+
+    const commonSingle = singleIconFileTemplate(BASE_FOLDER_NAME, pascalName, iconData, "common");
+    const esmSingle = singleIconFileTemplate(BASE_FOLDER_NAME, pascalName, iconData, "module");
+    const dtsSingle = singleIconFileTemplate(BASE_FOLDER_NAME, pascalName, iconData, "dts");
+
+    await fs.writeFile(
+      path.resolve(DIST, `${pascalName}.js`),
+      commonSingle,
+      'utf8'
+    )
+
+    await fs.writeFile(
+      path.resolve(DIST, `${pascalName}.esm.js`),
+      esmSingle,
+      'utf8'
+    )
+
+    await fs.writeFile(
+      path.resolve(DIST, `${pascalName}.d.ts`),
+      dtsSingle,
+      'utf8'
+    )
+
 
     exists.add(file);
+    exists.add(pascalName);
   }
   
 }
@@ -133,8 +154,8 @@ async function buildLib() {
     cwd: rootDir,
   };
   await Promise.all([
-    exec(`yarn tsc -p ./tsconfig.build.json --outDir "./lib/${BASE_LIB_NAME}/esm" --module es2015 && yarn babel --config-file ./babel.build.json ./lib/${BASE_LIB_NAME}/esm -d ./lib/${BASE_LIB_NAME}/esm`, execOpt),
-    exec(`yarn tsc -p ./tsconfig.build.json --outDir "./lib/${BASE_LIB_NAME}/cjs" --module commonjs`, execOpt),
+    exec(`yarn tsc -p ./tsconfig.build.json --outDir "./lib/${BASE_FOLDER_NAME}/esm" --module es2015 && yarn babel --config-file ./babel.build.json ./lib/${BASE_FOLDER_NAME}/esm -d ./lib/${BASE_FOLDER_NAME}/esm`, execOpt),
+    exec(`yarn tsc -p ./tsconfig.build.json --outDir "./lib/${BASE_FOLDER_NAME}/cjs" --module commonjs`, execOpt),
   ]);
 }
 

@@ -29,22 +29,31 @@ function libEntryTemplate(iconsFolderName, type = "module") {
 }
 
 
-function singleIconFileTemplate(formattedName, iconData, type = "module") {
+function singleIconFileTemplate(baseFolderName, formattedName, iconData, type = "module") {
   switch (type) {
     case "module":
       return (
-        `export function ${formattedName} (props) {\n` +
+        `import { GenIcon } from './${baseFolderName}';\n` +
+        `export { IconContext } from './${baseFolderName}';\n` +
+        `export default function ${formattedName} (props) {\n` +
         `  return GenIcon(${JSON.stringify(iconData)})(props);\n` +
         `};\n`
       );
     case "common":
       return (
-        `module.exports.${formattedName} = function ${formattedName} (props) {\n` +
+        `var GenIcon = require('./${baseFolderName}').GenIcon;\n` +
+        `module.exports = module.exports.default = function ${formattedName} (props) {\n` +
         `  return GenIcon(${JSON.stringify(iconData)})(props);\n` +
-        `};\n`
+        `};\n` + 
+        `module.exports.IconContext = require('./${baseFolderName}').IconContext;\n`
       );
     case "dts":
-      return `export declare const ${formattedName}: IconType;\n`;
+      return (
+        `import * as React from 'react';\n` +
+        `import { IconBaseProps } from './${baseFolderName}';\n` +
+        `export { IconContext } from './${baseFolderName}';\n` +
+        `export default function ${formattedName}(props: IconBaseProps): JSX.Element;\n`
+      )  
   }
 }
 
