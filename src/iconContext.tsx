@@ -10,7 +10,7 @@ export interface IconContext {
 
 export const DefaultContext: IconContext = {
   color: undefined,
-  size: undefined,
+  size: 50,
   className: undefined,
   style: undefined,
   attr: undefined,

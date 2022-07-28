@@ -7,7 +7,6 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import copy from 'copy-to-clipboard';
 import toast from "cogo-toast";
-import ErrorBoundary from './error-boundary';
 // list all svg icon from 'react-svg-images'
 import * as SVG_IMAGES from '../lib';
 import README from '../README.md';
@@ -68,6 +67,7 @@ const Container = styled.div`
 
 const ImageWrapper = styled.div`
     border: 1px solid rgba(0, 0, 0, 0.1);
+    text-align: center;
 `
 const ImageTitle = styled.h5`
     text-align: center;
@@ -75,14 +75,38 @@ const ImageTitle = styled.h5`
     height: 26px;
 `
 
-function ImageContainer(props: any) {
 
-    const { name, customProps } = props;
+class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
+
+    state = {
+        hasError: false
+    }
     
+    static getDerivedStateFromError(error) {
+      return { hasError: true };
+    }
+  
+    componentDidCatch(error, errorInfo) {
+      console.error(error, errorInfo);
+    }
+  
+    render() {
+      if (this.state.hasError) {
+        return (
+            <div style={{ margin: '20px', padding: '20px', border: '1px red sold'}}>
+                Svg Image can not be rendered.
+            </div>
+        )
+      }
+  
+      return this.props.children; 
+    }
+  }
+
+function ImageContainer(props: any) {
+    const { name, customProps } = props;
     function copyToClipboard() {
-        // TODO: copy
         copy(name);
-        // setShowing(true);
         toast.success(`${name} Copied to clipboard`, {
             position: "top-center"
         });
@@ -104,7 +128,7 @@ const App = () => {
     const ALL_IMAGE_NAMES = Object.keys(SVG_IMAGES).filter(name => ['IconContext', 'default'].indexOf(name) === -1 );
     const [ keyword, setKeyword ] = useState("")
     const [ useCustom, setUseCustom ] = useState(false);
-    const [ size, setSize] = useState(300);
+    const [ size, setSize] = useState(100);
     const [ color, setColor] = useState('#FF0000');
 
     function fitlerImages() {
@@ -118,7 +142,7 @@ const App = () => {
                 if (!keyword.trim()) {
                     return true;
                 }
-                const REG = new RegExp(keyword);
+                const REG = new RegExp(keyword, 'i');
                 if (REG.test(name)) {
                     return true;
                 }

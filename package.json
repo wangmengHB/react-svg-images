@@ -1,6 +1,6 @@
 {
   "name": "react-svg-images",
-  "version": "0.0.0-rc.3",
+  "version": "0.0.2-rc.1",
   "description": "collection of svg images which are wrapped in react component",
   "main": "lib/index.js",
   "module": "lib/index.esm.js",

@@ -54,6 +54,8 @@ async function writeIconModule() {
 
   const files = await glob(svgFileGlobPath);
 
+  console.log(`${files.length} svgs have been converted.`);
+
   for (const file of files) {
     const fileName = path.basename(file, path.extname(file));
     const pascalName = camelcase(fileName, { pascalCase: true });
